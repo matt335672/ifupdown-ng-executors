@@ -1,0 +1,37 @@
+#!/bin/sh
+
+#env | sort >&2
+
+[ -n "$VERBOSE" ] && set -x
+
+: ${IF_IMODE=bridge}
+
+status=0
+case "$PHASE" in
+#depend)
+#	echo "$IF_REQUIRES"
+#	;;
+#
+create)
+	if [ -d "/sys/class/net/${IFACE}" ]; then
+		iface_type=$(ip -d link show dev "${IFACE}" | head -n3 | tail -n1 | awk '{ print $1 }')
+		if [ "${iface_type}" != 'macvlan' ]; then
+			echo "Interface ${IFACE} exists but is of type ${iface_type} instead of macvlan"
+			status=1
+		fi
+	else
+		${MOCK} ip link add link $IF_REQUIRES name "$IFACE" type macvlan mode "$IF_IMODE"
+		status=$?
+	fi
+
+        ;;
+
+destroy)
+	if [ -n "${MOCK}" -o -d "/sys/class/net/${IFACE}" ]; then
+		${MOCK} ip link delete "$IFACE" type macvlan
+		status=$?
+	fi
+        ;;
+esac
+
+exit $status

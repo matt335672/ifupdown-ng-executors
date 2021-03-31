@@ -1,0 +1,48 @@
+#!/bin/sh
+
+#env | sort >&2
+
+[ -n "$VERBOSE" ] && set -x
+
+is_vlan() {
+	case "$IFACE" in
+		*#*) return 1 ;;
+		*:*) return 1 ;;
+		vlan*.*) return 1 ;;
+		vlan*)
+			IF_VLAN_ID="${IFACE#vlan}"
+			[ -n "${IF_VLAN_RAW_DEVICE:-}" ] && return 0
+			return 1
+			;;
+		*.*)
+			IF_VLAN_RAW_DEVICE="${IFACE%.*}"
+			IF_VLAN_ID="${IFACE##*.}"
+			return 0
+			;;
+		*)
+			[ -z "${IF_VLAN_ID:-}" ] && return 1
+			[ -z "${IF_VLAN_RAW_DEVICE:-}" ] && return 1
+			return 0
+			;;
+	esac
+}
+
+status=0
+val=
+case "$PHASE" in
+	pre-up)		val=1 ;;
+	post-down)	val=0 ;;
+esac
+
+if [ -n "$val" ]; then
+	if is_vlan; then
+		dev=${IF_VLAN_RAW_DEVICE}/${IF_VLAN_ID}
+	else
+		dev=${IFACE}
+	fi
+
+	${MOCK} sysctl -w net.ipv6.conf.$dev.disable_ipv6=$val
+	status=$?
+fi
+
+exit $status
